@@ -22,17 +22,17 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String input = "";
+  String todoTitle = "";
 
   createTodo() {
     DocumentReference documentReference =
-        FirebaseFirestore.instance.collection("MyTodos").doc(input);
+        FirebaseFirestore.instance.collection("MyTodos").doc(todoTitle);
 
     //Map
-    Map<String, String> todos = {"todoTitle": input};
+    Map<String, String> todos = {"todoTitle": todoTitle};
 
     documentReference.set(todos).whenComplete(() {
-      print("$input added to the database");
+      print("$todoTitle added to the database");
     });
   }
 
@@ -62,14 +62,14 @@ class _MyAppState extends State<MyApp> {
                   title: const Text("Add todo"),
                   content: TextField(
                     onChanged: (String value) {
-                      input = value;
+                      todoTitle = value;
                     },
                   ),
                   actions: <Widget>[
                     TextButton(
                       child: const Text("Add"),
                       onPressed: () {
-                        if (input == "") return;
+                        if (todoTitle == "") return;
                         createTodo();
                         Navigator.of(context).pop();
                       },
@@ -81,37 +81,48 @@ class _MyAppState extends State<MyApp> {
         child: const Icon(Icons.add, color: Colors.white),
       ),
       body: StreamBuilder(
-        stream: FirebaseFirestore.instance.collection("MyTodos").snapshots(),
-        builder: (context, snapshots) {
-          return ListView.builder(
-            itemCount: snapshots.data?.docs.length,
-            itemBuilder: (BuildContext context, int index) {
-              return Dismissible(
-                key: Key(snapshots.data!.docs[index].id),
-                child: Card(
-                  elevation: 2,
-                  margin: const EdgeInsets.all(4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: ListTile(
-                    title:
-                        Text(snapshots.data?.docs[index].data()["todoTitle"]),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete),
-                      onPressed: () {
-                        deleteTodo(snapshots.data?.docs[index]["todoTitle"]);
-                      },
-                    ),
-                  ),
-                ),
-                onDismissed: (direction) =>
-                    deleteTodo(snapshots.data?.docs[index].data()["todoTitle"]),
+          stream: FirebaseFirestore.instance.collection("MyTodos").snapshots(),
+          builder: (context, AsyncSnapshot snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(),
               );
-            },
-          );
-        },
-      ),
+            }
+
+            if (snapshot.hasData) {
+              return ListView.builder(
+                itemCount: snapshot.data?.docs.length,
+                itemBuilder: (BuildContext context, int index) {
+                  DocumentSnapshot documentSnapshot = snapshot.data.docs[index];
+                  return Dismissible(
+                    key: Key(documentSnapshot['todoTitle']),
+                    child: Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.all(4),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ListTile(
+                        title: Text(documentSnapshot['todoTitle']),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete),
+                          onPressed: () {
+                            deleteTodo(documentSnapshot["todoTitle"]);
+                          },
+                        ),
+                      ),
+                    ),
+                    onDismissed: (direction) =>
+                        deleteTodo(documentSnapshot['todoTitle']),
+                  );
+                },
+              );
+            }
+
+            return const Center(
+              child: Text("Add some todos"),
+            );
+          }),
     );
   }
 }
